@@ -1,17 +1,23 @@
 {
   "expo": {
-    "name": "marsa-tmp",
-    "slug": "marsa-tmp",
+    "name": "Marsa Wholesale",
+    "slug": "marsa-wholesale",
+    "scheme": "marsa",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.itsmarsa.wholesale",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.itsmarsa.wholesale",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0F1F19",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -20,6 +26,18 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Marsa Wholesale uses the camera to scan product barcodes so you can reorder quickly.",
+          "recordAudioAndroid": false
+        }
+      ]
+    ]
   }
 }
