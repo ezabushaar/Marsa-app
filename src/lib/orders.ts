@@ -1,3 +1,4 @@
+import type * as account from "../../vendor/contracts/routes/portal/account";
 import type * as shop from "../../vendor/contracts/routes/portal/shop";
 
 /** The pill colour of an order's stage. */
@@ -22,4 +23,12 @@ export function trackingUrl(number: string): string {
   const n = number.trim();
   if (/^1Z[0-9A-Z]{16}$/i.test(n)) return `https://www.ups.com/track?tracknum=${encodeURIComponent(n)}`;
   return `https://www.google.com/search?q=${encodeURIComponent(`${n} tracking`)}`;
+}
+
+/** The pill colour of a return's status. */
+export function returnTone(status: (typeof account.PORTAL_RETURN_STATUSES)[number]) {
+  if (status === "cancelled") return "neg" as const;
+  if (status === "credited" || status === "replaced") return "pos" as const;
+  if (status === "requested") return "warn" as const;
+  return "neutral" as const;
 }

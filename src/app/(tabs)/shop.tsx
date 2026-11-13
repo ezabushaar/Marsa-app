@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import * as shop from "@contracts/routes/portal/shop";
 import { call } from "@/api/client";
@@ -30,12 +30,15 @@ function useDebounced<T>(value: T, ms = 300): T {
   return v;
 }
 
-export default function Catalog() {
+export default function Shop() {
   const params = useLocalSearchParams<{ q?: string; brandId?: string; brandName?: string; sort?: Sort }>();
   const [text, setText] = useState(params.q ?? "");
   const [brandId, setBrandId] = useState<string | undefined>(params.brandId);
   const [sort, setSort] = useState<Sort | undefined>(params.sort);
   const [inStock, setInStock] = useState(false);
+  const [category, setCategory] = useState<string | undefined>();
+  const [cats, setCats] = useState<{ code: string; name: string }[]>([]);
+  const jumped = useRef<string | null>(null);
   const q = useDebounced(text.trim());
 
   // Arriving from Home with a brand or a sort picks it, even when the tab was already open.
@@ -49,6 +52,7 @@ export default function Catalog() {
   const query = {
     q: q || undefined,
     brandId,
+    category,
     sort: sort ?? (q ? "relevance" : "best_sellers"),
     inStock: inStock ? "true" : undefined,
   } as const;
@@ -67,10 +71,19 @@ export default function Catalog() {
   const first = list.data?.pages[0];
   const rows = list.data?.pages.flatMap((p) => p.rows) ?? [];
 
-  // An exact SKU or barcode match: straight to the item.
+  // An exact SKU or barcode match: straight to the item (once per search, so Back returns to the list).
   useEffect(() => {
-    if (first?.match && q) router.push({ pathname: "/product/[id]", params: { id: first.match } });
+    if (first?.match && q && jumped.current !== q) {
+      jumped.current = q;
+      router.push({ pathname: "/product/[id]", params: { id: first.match } });
+    }
   }, [first?.match, q]);
+
+  // The top-level categories, kept from the first answer so the row doesn't jump while filtering.
+  useEffect(() => {
+    const top = (first?.categories ?? []).filter((c) => c.depth === 0 && c.items > 0);
+    if (top.length > 1 && cats.length === 0) setCats(top.map((c) => ({ code: c.code, name: c.name })));
+  }, [first?.categories, cats.length]);
 
   const header = (
     <View style={{ gap: space.md, paddingBottom: space.md }}>
@@ -86,6 +99,7 @@ export default function Catalog() {
             autoCorrect={false}
             returnKeyType="search"
             clearButtonMode="while-editing"
+            accessibilityLabel="Search the catalog"
           />
         </View>
         <Pressable style={s.scan} onPress={() => router.push("/scan")} accessibilityLabel="Scan a barcode">
@@ -103,6 +117,14 @@ export default function Catalog() {
           />
         ))}
       </ScrollView>
+      {cats.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+          <Chip label="Everything" active={!category} onPress={() => setCategory(undefined)} />
+          {cats.map((c) => (
+            <Chip key={c.code} label={c.name} active={category === c.code} onPress={() => setCategory(c.code)} />
+          ))}
+        </ScrollView>
+      ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
         <Chip label="All brands" active={!brandId} onPress={() => setBrandId(undefined)} />
         {brands.data?.rows.map((b) => (

@@ -31,6 +31,7 @@ const entries = [
   "routes/portal/account.ts",
   "routes/portal/history.ts",
   "routes/portal/team.ts",
+  "routes/priceLists.ts",
 ];
 
 const seen = new Set();

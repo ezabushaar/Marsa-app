@@ -1,19 +1,21 @@
 import { router } from "expo-router";
-import { Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import type { z } from "zod";
 import * as shop from "@contracts/routes/portal/shop";
-import { useApi, useApiMutation, CART_DEPENDENTS } from "@/api/hooks";
+import { messageOf } from "@/api/client";
+import { CART_DEPENDENTS, useApi, useApiMutation } from "@/api/hooks";
+import { EmptyState, Progress } from "@/components/kit";
 import { useCartLine } from "@/components/ProductCard";
 import { ProductImage } from "@/components/ProductImage";
 import { QtyStepper } from "@/components/QtyStepper";
-import { Banner, Button, Card, Divider, Empty, ErrorState, Loading, Row, Screen, T } from "@/components/ui";
+import { Banner, Button, Card, Divider, ErrorState, Loading, Row, Screen, T } from "@/components/ui";
 import { money, plural } from "@/lib/format";
 import { colors, space } from "@/theme";
 
 type CartLine = z.infer<typeof shop.cartLine>;
 
 function LineRow({ line }: { line: CartLine }) {
-  const ctl = useCartLine(line.productId);
+  const ctl = useCartLine(line.productId, !!line.clearance);
   const fix = useApiMutation(shop.fixCart, { invalidates: CART_DEPENDENTS });
   const rules = shop.qtyRules(line.item);
   return (
@@ -66,6 +68,7 @@ function LineRow({ line }: { line: CartLine }) {
 export default function Cart() {
   const q = useApi(shop.getCart);
   const fixAll = useApiMutation(shop.fixCart, { invalidates: CART_DEPENDENTS });
+  const saveList = useApiMutation(shop.createList, { invalidates: [shop.listLists] });
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -75,12 +78,18 @@ export default function Cart() {
   if (cart.lines.length === 0) {
     return (
       <Screen refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
-        <Empty
+        <EmptyState
+          icon="bag-handle-outline"
           title="Your cart is empty"
-          body={`Wholesale orders start at ${money(summary.minimum.orderCents)}.`}
-          action={<Button title="Browse the catalog" onPress={() => router.navigate("/catalog")} />}
+          body={`Wholesale orders start at ${money(summary.minimum.orderCents)}. Scan your shelf or reorder a past order to fill it fast.`}
+          action={
+            <View style={{ gap: space.sm, alignSelf: "stretch" }}>
+              <Button title="Scan barcodes" onPress={() => router.push("/scan")} />
+              <Button title="Browse the catalog" kind="secondary" onPress={() => router.navigate("/shop")} />
+              <Button title="Saved lists" kind="ghost" onPress={() => router.push("/lists")} />
+            </View>
+          }
         />
-        <Button title="Scan barcodes" kind="secondary" onPress={() => router.push("/scan")} />
       </Screen>
     );
   }
@@ -104,9 +113,24 @@ export default function Cart() {
           </Banner>
         ) : null}
         {!summary.minimum.reached ? (
-          <Banner tone="warn">
-            {`Add ${money(summary.minimum.shortCents)} more to reach the ${money(summary.minimum.orderCents)} order minimum.`}
-          </Banner>
+          <Card style={{ gap: space.sm }}>
+            <Progress
+              tone="warn"
+              value={Number(BigInt(summary.itemsCents)) / Number(BigInt(summary.minimum.orderCents))}
+            />
+            <T variant="small">
+              Add {money(summary.minimum.shortCents)} more to reach the {money(summary.minimum.orderCents)} order minimum.
+            </T>
+          </Card>
+        ) : estimate?.freight.freeOver && !estimate.freight.freeOver.reached ? (
+          <Card style={{ gap: space.sm }}>
+            <Progress
+              value={Number(BigInt(summary.itemsCents)) / Number(BigInt(estimate.freight.freeOver.thresholdCents))}
+            />
+            <T variant="small">
+              {money(estimate.freight.freeOver.shortCents)} more for free {estimate.freight.freeOver.methodName}
+            </T>
+          </Card>
         ) : null}
 
         <Card>
@@ -153,6 +177,24 @@ export default function Cart() {
         <T variant="small" style={{ textAlign: "center" }}>
           Nothing is charged when you send. Marsa confirms stock, freight and tax first.
         </T>
+        <Button
+          title="Save this cart as a list"
+          kind="ghost"
+          loading={saveList.isPending}
+          onPress={() =>
+            saveList.mutate(
+              { body: { name: `Order ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, fromCart: true } },
+              {
+                onSuccess: (l) =>
+                  Alert.alert("Saved", `"${l.name}" is in your saved lists.`, [
+                    { text: "OK", style: "cancel" },
+                    { text: "Open", onPress: () => router.push({ pathname: "/lists/[id]", params: { id: l.id } }) },
+                  ]),
+                onError: (e) => Alert.alert("Couldn't save the list", messageOf(e)),
+              },
+            )
+          }
+        />
       </Screen>
       <View style={{ padding: space.lg, backgroundColor: colors.page, borderTopWidth: 1, borderColor: colors.lineSoft }}>
         <Button

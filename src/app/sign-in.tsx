@@ -1,10 +1,12 @@
 import { Link } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { messageOf } from "@/api/client";
 import { useSession } from "@/api/session";
 import { Banner, Button, Field, T } from "@/components/ui";
+import { PORTAL_URL } from "@/config";
 import { colors, radius, space } from "@/theme";
 
 export default function SignIn() {
@@ -35,7 +37,7 @@ export default function SignIn() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.foot }} edges={["top"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          <View style={{ padding: space.xl, paddingTop: space.xxl * 1.5, gap: space.sm }}>
+          <View style={{ padding: space.xl, paddingTop: space.xxl * 2, gap: space.sm }}>
             <Text style={{ color: colors.panelMint, fontSize: 13, fontWeight: "700", letterSpacing: 1.5 }}>
               MARSA WHOLESALE
             </Text>
@@ -91,10 +93,14 @@ export default function SignIn() {
                 <Text style={{ color: colors.accent, fontWeight: "600" }}>Forgot your password?</Text>
               </Pressable>
             </Link>
-            <T variant="muted" style={{ textAlign: "center" }}>
-              New to Marsa? Apply for a wholesale account at wholesale.itsmarsa.com. Once approved, sign in here with
-              the same email.
-            </T>
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(`${PORTAL_URL}/apply`)}
+              style={{ alignSelf: "center", padding: space.sm }}
+            >
+              <T variant="muted" style={{ textAlign: "center" }}>
+                New to Marsa? <Text style={{ color: colors.accent, fontWeight: "600" }}>Apply for wholesale</Text>
+              </T>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

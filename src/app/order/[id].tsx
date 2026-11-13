@@ -36,7 +36,7 @@ export default function Order() {
           const skipped = r.skipped.length ? `\n${plural(r.skipped.length, "item")} couldn't be added (out of stock or no longer sold).` : "";
           Alert.alert("Added to your cart", `${plural(r.added, "item")} added at today's prices.${skipped}`, [
             { text: "Keep browsing", style: "cancel" },
-            { text: "Go to cart", onPress: () => router.navigate("/cart") },
+            { text: "Go to cart", onPress: () => router.push("/cart") },
           ]);
         },
         onError: (e) => Alert.alert("Couldn't reorder", messageOf(e)),
@@ -206,6 +206,14 @@ export default function Order() {
         </Card>
       ) : o.stage !== "cancelled" && o.stage !== "closed" ? (
         <Button title="Ask for changes" kind="ghost" onPress={() => setAsking(true)} />
+      ) : null}
+
+      {can("shop") && o.deliveries.some((d) => d.deliveredAt) ? (
+        <Button
+          title="Start a return"
+          kind="ghost"
+          onPress={() => router.push({ pathname: "/returns/new", params: { order: o.id } })}
+        />
       ) : null}
 
       {o.canCancel ? <Button title="Cancel order" kind="ghost" loading={cancel.isPending} onPress={doCancel} /> : null}

@@ -15,23 +15,25 @@ from the ERP, under the same rules the web portal follows.
 - `vendor/contracts`: the ERP's portal route contracts (zod schemas and the typed client), copied by
   `scripts/sync-contracts.mjs`, so every request and answer is typed exactly as the API defines it
 
-## What's in v1
+## What's in the app
 
-| Tab / screen | What it does |
+Navigation follows the plan doc ("Marsa Wholesale App — Full Plan"): five tabs with Scan always one tap away.
+
+| Area | What it does |
 | --- | --- |
-| Sign in, reset password | Portal accounts (Owner, Buyer, Accounts). "Keep me signed in" holds the session 30 days |
-| Shop | Buy again, new arrivals, brands, cart progress toward the order minimum, the customer's rep (WhatsApp, email) |
-| Catalog | Search by name, brand, SKU or UPC with typo-tolerant ranking; filters by brand and in stock; sort; infinite scroll. An exact SKU or barcode jumps to the item |
-| Scan to order | Scan a bottle's UPC or a case barcode, set the quantity, add it, then scan the next one |
-| Product | Customer price, contract price, MSRP and margin at MSRP, live stock, minimum, pack and case size, last ordered, notes, "sells well with" |
-| Cart | Quantity steppers that follow the ERP's minimum, pack and maximum rules; one-tap fixes for problem lines; minimum, freight and tax estimate |
-| Checkout | Ship-to or pickup, shipping method, ACH, card or Net terms, PO number, coupon, notes. Sends a Submitted order (nothing is charged) with an idempotency key, so a double tap never places two orders |
-| Orders | Tabs (open, to pay, shipped, delivered); order detail with confirmed quantities, totals, deliveries and tracking; reorder, pay, cancel and "ask for changes" |
-| Invoices | Total due and aging; select invoices and pay through the ERP's hosted pay page (ACH or card) |
-| Account | Billing summary, WhatsApp and new-arrival alerts, links to the web portal for quotes, returns, addresses, team and password |
+| Welcome (signed out) | What the app is, top sellers, the public catalog without prices, sign in, apply for wholesale, privacy and terms |
+| **Home** | Balance due with Pay, cart progress to the minimum and free freight, order again (last 3 orders), your usual order in one tap, clearance deals, back in stock, buy again, new arrivals, brands, your rep (WhatsApp, email) |
+| **Shop** | Search by name, brand, SKU or UPC (typo-tolerant), filters by category, brand and stock, sorts, infinite scroll; an exact barcode jumps to the item |
+| **Scan** (center) | Scan a whole shelf: each UPC or case barcode adds a line (again adds a pack), review, add all to cart; type a code when a label won't scan |
+| Product | Gallery, your price, contract price, margin at MSRP, case price, stock, quantity rules, last ordered, save to a list, volume quote request, restock alert, share photos, sells well with |
+| Cart and checkout | ERP quantity rules, one-tap fixes, minimum and free-freight progress, save as a list; ship-to or pickup, shipping method, ACH, card or Net terms, PO, coupon; accepting a quote uses the same checkout |
+| **Orders** | Orders by status and Quotes; order detail with confirmed quantities, totals, tracking, reorder, pay, cancel, ask for changes, start a return |
+| **Account** | Invoices and pay, store credit, saved lists, restock alerts, deals, returns, business details and change requests, addresses, team and invites, notifications (WhatsApp, email), password, help, privacy, terms, delete account |
 
-Roles follow the ERP: a Buyer never sees invoices or balances, and an Accounts user sees orders and invoices but
-no shop.
+Roles follow the ERP: a Buyer never sees invoices or balances, and an Accounts user sees orders and invoices but no shop.
+
+Store review readiness (privacy manifest, permissions, deletion, review notes, data-safety answers) is in
+[STORE_SUBMISSION.md](STORE_SUBMISSION.md).
 
 ## Run it
 

@@ -1,10 +1,12 @@
-import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { ResponseOf } from "@contracts/http";
 import * as shop from "@contracts/routes/portal/shop";
 import { messageOf } from "@/api/client";
 import { CART_DEPENDENTS, useApi, useApiMutation } from "@/api/hooks";
+import { useSession } from "@/api/session";
 import { Banner, Button, Card, Divider, ErrorState, Field, Loading, Row, Screen, Section, T } from "@/components/ui";
 import { money } from "@/lib/format";
 import { colors, radius, space } from "@/theme";
@@ -65,11 +67,14 @@ function Choice({
 }
 
 export default function Checkout() {
+  const { quote: quoteId } = useLocalSearchParams<{ quote?: string }>();
   const cartQ = useApi(shop.getCart);
   const methodsQ = useApi(shop.shippingMethods);
-  if (cartQ.isPending || methodsQ.isPending) return <Loading />;
+  const quoteQ = useApi(shop.getQuote, { params: { id: quoteId ?? "" } }, { enabled: !!quoteId });
+  if (cartQ.isPending || methodsQ.isPending || (quoteId && quoteQ.isPending)) return <Loading />;
   if (cartQ.isError) return <ErrorState error={cartQ.error} onRetry={() => void cartQ.refetch()} />;
-  return <CheckoutForm cart={cartQ.data} methods={methodsQ.data?.rows ?? []} />;
+  if (quoteQ.isError) return <ErrorState error={quoteQ.error} onRetry={() => void quoteQ.refetch()} />;
+  return <CheckoutForm cart={cartQ.data} methods={methodsQ.data?.rows ?? []} quote={quoteQ.data} />;
 }
 
 function defaultPayment(cart: { terms: { offered: boolean }; lastPayment: Pay | null }): Pay {
@@ -78,13 +83,20 @@ function defaultPayment(cart: { terms: { offered: boolean }; lastPayment: Pay | 
   return "ach";
 }
 
+/**
+ * Sending the cart to Marsa (a Submitted order: nothing reserved or charged), or accepting a quote the same way
+ * (`quote`): ship-to or pickup, shipping method, how they'd like to pay, PO, coupon and notes.
+ */
 function CheckoutForm({
   cart,
   methods: allMethods,
+  quote,
 }: {
   cart: ResponseOf<typeof shop.getCart>;
   methods: ResponseOf<typeof shop.shippingMethods>["rows"];
+  quote?: ResponseOf<typeof shop.getQuote>;
 }) {
+  const { can } = useSession();
   const shipTos = cart.addresses.filter((a) => a.kind === "ship_to");
   const pickupOffered = allMethods.some((m) => m.pickup) || allMethods.length === 0;
   const methods = allMethods.filter((m) => !m.pickup);
@@ -94,7 +106,12 @@ function CheckoutForm({
   const [notes, setNotes] = useState("");
   const [coupon, setCoupon] = useState("");
   const [pay, setPay] = useState<Pay>(() => defaultPayment(cart));
-  const submit = useApiMutation(shop.submitCart, { invalidates: [...CART_DEPENDENTS, shop.listOrders] });
+  const submitCart = useApiMutation(shop.submitCart, { invalidates: [...CART_DEPENDENTS, shop.listOrders] });
+  const acceptQuote = useApiMutation(shop.acceptQuote, {
+    invalidates: [shop.listOrders, shop.listQuotes, shop.getQuote],
+  });
+  const submit = quote ? acceptQuote : submitCart;
+  const itemsCents = quote ? quote.totalCents : cart.summary.itemsCents;
 
   const pickup = ship === "pickup";
   const chosen = methods.find((m) => m.id === methodId);
@@ -102,9 +119,7 @@ function CheckoutForm({
 
   const send = () => {
     if (!ship) return;
-    submit.mutate(
-      {
-        body: {
+    const body = {
           ...(pickup
             ? { pickup: true }
             : chosen
@@ -114,12 +129,13 @@ function CheckoutForm({
           notes: notes.trim() || null,
           preferredPayment: pay,
           ...(coupon.trim() ? { couponCode: coupon.trim().toUpperCase() } : {}),
-        },
-      },
-      {
-        onSuccess: (r) => router.replace({ pathname: "/order/[id]", params: { id: r.order.id, placed: "1" } }),
-      },
-    );
+    };
+    const done = (r: { order: { id: string } }) => {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace({ pathname: "/placed/[id]", params: { id: r.order.id } });
+    };
+    if (quote) acceptQuote.mutate({ params: { id: quote.id }, body }, { onSuccess: done });
+    else submitCart.mutate({ body }, { onSuccess: done });
   };
 
   return (
@@ -128,7 +144,9 @@ function CheckoutForm({
         <Section title="1. Ship to">
           {shipTos.length === 0 ? (
             <Banner tone="warn">
-              No delivery address on file. Add one in the web portal under Account › Addresses, or choose pick up.
+              {can("team")
+                ? "No delivery address on file yet. Add one below, or choose pick up."
+                : "No delivery address on file. Ask your account owner to add one, or choose pick up."}
             </Banner>
           ) : null}
           {shipTos.map((a) => (
@@ -147,6 +165,9 @@ function CheckoutForm({
               title="Pick up at the warehouse"
               sub="No freight. We'll message you when it's ready."
             />
+          ) : null}
+          {can("team") ? (
+            <Button title="Add a ship-to address" kind="ghost" onPress={() => router.push("/address-edit")} />
           ) : null}
         </Section>
 
@@ -188,13 +209,22 @@ function CheckoutForm({
 
         <Section title="4. Details">
           <Field label="Your PO number (optional)" value={po} onChangeText={setPo} maxLength={100} />
-          <Field label="Coupon (optional)" value={coupon} onChangeText={setCoupon} autoCapitalize="characters" maxLength={40} />
+          {quote ? null : (
+            <Field
+              label="Coupon (optional)"
+              value={coupon}
+              onChangeText={setCoupon}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={40}
+            />
+          )}
           <Field label="Notes for Marsa (optional)" value={notes} onChangeText={setNotes} multiline maxLength={2000} />
         </Section>
 
         <Card>
-          <Row label="Items" value={money(cart.summary.itemsCents)} />
-          {cart.estimate && cart.estimate.discountCents !== "0" ? (
+          <Row label={quote ? `Quote ${quote.number}` : "Items"} value={money(itemsCents)} />
+          {!quote && cart.estimate && cart.estimate.discountCents !== "0" ? (
             <Row label="Discounts" value={`−${money(cart.estimate.discountCents)}`} />
           ) : null}
           <Row
@@ -204,7 +234,7 @@ function CheckoutForm({
                 ? "Pick up"
                 : chosen?.chargeCents == null
                   ? "Quoted by Marsa"
-                  : chosen.freeOverCents && BigInt(cart.summary.itemsCents) >= BigInt(chosen.freeOverCents)
+                  : chosen.freeOverCents && BigInt(itemsCents) >= BigInt(chosen.freeOverCents)
                     ? "Free"
                     : money(chosen.chargeCents)
             }
@@ -218,9 +248,9 @@ function CheckoutForm({
       </Screen>
       <View style={{ padding: space.lg, backgroundColor: colors.page, borderTopWidth: 1, borderColor: colors.lineSoft }}>
         <Button
-          title={`Send order · ${money(cart.summary.itemsCents)}`}
+          title={quote ? `Accept and order · ${money(itemsCents)}` : `Send order · ${money(itemsCents)}`}
           loading={submit.isPending}
-          disabled={!ship || !cart.summary.canSubmit}
+          disabled={!ship || (!quote && !cart.summary.canSubmit)}
           onPress={send}
         />
       </View>
