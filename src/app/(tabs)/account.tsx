@@ -11,6 +11,7 @@ import { Button, Screen, T } from "@/components/ui";
 import { LEGAL } from "@/config";
 import { money } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/roles";
+import { shareReferral } from "@/lib/referral";
 import { colors, radius, space } from "@/theme";
 
 /** Everything about the store and the person: money, ordering tools, store settings, help and legal. */
@@ -96,6 +97,11 @@ export default function Account() {
         {rep.data?.email ? (
           <ListItem icon="mail-outline" label="Email" detail={rep.data.email} onPress={() => Linking.openURL(`mailto:${rep.data.email}`)} />
         ) : null}
+        <ListItem
+          icon="gift-outline"
+          label="Invite another store"
+          onPress={() => void shareReferral(me.customer.number, "account")}
+        />
         <ListItem icon="car-outline" label="Shipping policy" onPress={() => open(LEGAL.shipping)} />
         <ListItem icon="refresh-outline" label="Returns policy" onPress={() => open(LEGAL.returns)} />
       </ListGroup>
@@ -103,6 +109,7 @@ export default function Account() {
       <ListGroup title="Legal">
         <ListItem icon="shield-checkmark-outline" label="Privacy policy" onPress={() => open(LEGAL.privacy)} />
         <ListItem icon="reader-outline" label="Terms and conditions" onPress={() => open(LEGAL.terms)} />
+        <ListItem icon="options-outline" label="Privacy choices" onPress={() => router.push("/privacy-choices")} />
         <ListItem icon="trash-outline" label="Delete account" tone="danger" onPress={() => router.push("/delete-account")} />
       </ListGroup>
 

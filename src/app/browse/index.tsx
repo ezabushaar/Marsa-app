@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import * as shop from "@contracts/routes/portal/shop";
 import { call } from "@/api/client";
+import { useTrackView } from "@/lib/analytics";
 import { useApi } from "@/api/hooks";
 import { EmptyState, Skeleton } from "@/components/kit";
 import { ProductImage } from "@/components/ProductImage";
@@ -24,6 +25,7 @@ export default function Browse() {
   }, [text]);
 
   const landing = useApi(shop.publicLanding);
+  useTrackView("public_catalog_view");
   const open = landing.data?.catalogOpen ?? true;
   const brands = useApi(shop.publicBrands, undefined, { enabled: open });
   const list = useInfiniteQuery({

@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import * as StoreReview from "expo-store-review";
+import { useEffect } from "react";
 import { View } from "react-native";
 import * as shop from "@contracts/routes/portal/shop";
 import { useApi } from "@/api/hooks";
 import { Button, Card, Row, Screen, T } from "@/components/ui";
 import { money, plural } from "@/lib/format";
+import { askAdConsentOnce, countOrderPlaced } from "@/lib/analytics";
 import { colors, space } from "@/theme";
 
 const NEXT = [
@@ -18,6 +21,17 @@ export default function Placed() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useApi(shop.getOrder, { params: { id } });
   const o = q.data;
+
+  // After the 2nd order (and every 10th), ask for an App Store / Play review: a happy moment, rarely.
+  // After the first, ask once about ad measurement (iOS shows Apple's prompt; nothing if it's off for this build).
+  useEffect(() => {
+    void (async () => {
+      const n = await countOrderPlaced();
+      await new Promise((r) => setTimeout(r, 1500));
+      if (n === 1) await askAdConsentOnce();
+      if ((n === 2 || n % 10 === 0) && (await StoreReview.hasAction())) await StoreReview.requestReview();
+    })();
+  }, []);
   return (
     <Screen contentStyle={{ paddingTop: space.xxl }}>
       <View style={{ alignItems: "center", gap: space.md }}>

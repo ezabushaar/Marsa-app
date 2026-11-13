@@ -14,6 +14,7 @@ import { ProductImage } from "@/components/ProductImage";
 import { QtyStepper } from "@/components/QtyStepper";
 import { Button, T } from "@/components/ui";
 import { money } from "@/lib/format";
+import { track } from "@/lib/analytics";
 import { colors, radius, space } from "@/theme";
 
 type ScannedItem = NonNullable<z.infer<typeof shop.lookupLine>["item"]>;
@@ -92,6 +93,7 @@ export default function Scan() {
       {
         onSuccess: () => {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          track("add_to_cart", { via: "scan", lines: lines.length, units, value_cents: total });
           router.replace("/cart");
         },
         onError: (e) => Alert.alert("Couldn't add them", messageOf(e)),

@@ -33,7 +33,8 @@ Navigation follows the plan doc ("Marsa Wholesale App — Full Plan"): five tabs
 Roles follow the ERP: a Buyer never sees invoices or balances, and an Accounts user sees orders and invoices but no shop.
 
 Store review readiness (privacy manifest, permissions, deletion, review notes, data-safety answers) is in
-[STORE_SUBMISSION.md](STORE_SUBMISSION.md).
+[STORE_SUBMISSION.md](STORE_SUBMISSION.md). Analytics, ad attribution (Google Analytics 4, Meta, TikTok, Snapchat),
+campaign links, referrals and the review prompt are in [MARKETING.md](MARKETING.md).
 
 ## Run it
 

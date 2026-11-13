@@ -3,10 +3,11 @@ import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { messageOf } from "@/api/client";
+import { ApiError, messageOf } from "@/api/client";
 import { useSession } from "@/api/session";
 import { Banner, Button, Field, T } from "@/components/ui";
 import { PORTAL_URL } from "@/config";
+import { track, useTrackView } from "@/lib/analytics";
 import { colors, radius, space } from "@/theme";
 
 export default function SignIn() {
@@ -16,6 +17,7 @@ export default function SignIn() {
   const [keep, setKeep] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useTrackView("signin_view");
 
   const submit = async () => {
     if (!email.trim() || !password) {
@@ -26,7 +28,9 @@ export default function SignIn() {
     setError(null);
     try {
       await signIn(email, password, keep);
+      track("signin_ok", { keep });
     } catch (e) {
+      track("signin_fail", { code: e instanceof ApiError ? e.code : "unknown" });
       setError(messageOf(e));
     } finally {
       setBusy(false);
@@ -94,7 +98,10 @@ export default function SignIn() {
               </Pressable>
             </Link>
             <Pressable
-              onPress={() => WebBrowser.openBrowserAsync(`${PORTAL_URL}/apply`)}
+              onPress={() => {
+                track("public_apply_click", { from: "sign_in" });
+                void WebBrowser.openBrowserAsync(`${PORTAL_URL}/apply?utm_source=app&utm_medium=sign_in`);
+              }}
               style={{ alignSelf: "center", padding: space.sm }}
             >
               <T variant="muted" style={{ textAlign: "center" }}>

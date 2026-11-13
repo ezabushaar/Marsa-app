@@ -12,6 +12,7 @@ import { Banner, Button, Card, Divider, ErrorState, Field, Loading, Pill, Row, S
 import { absoluteUrl } from "@/config";
 import { day, money, plural } from "@/lib/format";
 import { stageTone, trackingUrl } from "@/lib/orders";
+import { track } from "@/lib/analytics";
 import { colors, space } from "@/theme";
 
 export default function Order() {
@@ -30,7 +31,8 @@ export default function Order() {
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const o = q.data;
 
-  const doReorder = () =>
+  const doReorder = () => {
+    track("reorder_click", { order_id: o.id, from: "order" });
     reorder.mutate(
       { params: { id: o.id }, body: { mode: "add" } },
       {
@@ -44,6 +46,7 @@ export default function Order() {
         onError: (e) => Alert.alert("Couldn't reorder", messageOf(e)),
       },
     );
+  };
 
   const doCancel = () =>
     Alert.alert("Cancel this order?", `${o.number} won't be sent to Marsa.`, [
@@ -59,7 +62,13 @@ export default function Order() {
       },
     ]);
 
-  const openPay = (url: string) => void WebBrowser.openBrowserAsync(absoluteUrl(url) ?? url).then(() => q.refetch());
+  const openPay = (url: string) => {
+    track("checkout_redirect", { kind: "order", order_id: o.id });
+    void WebBrowser.openBrowserAsync(absoluteUrl(url) ?? url).then(() => {
+      track("payment_returned", { kind: "order", order_id: o.id });
+      void q.refetch();
+    });
+  };
   const payFail = (e: unknown) => Alert.alert("Couldn't open payment", messageOf(e));
   /** Pays invoices on the processor's page: the order's own invoice, or the overdue ones holding it. */
   const doPayInvoices = (invoiceIds: string[]) =>

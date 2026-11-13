@@ -9,6 +9,7 @@ import { ProductImage } from "@/components/ProductImage";
 import { Button, T } from "@/components/ui";
 import { LEGAL, PORTAL_URL } from "@/config";
 import { money } from "@/lib/format";
+import { track, useTrackView } from "@/lib/analytics";
 import { colors, radius, space } from "@/theme";
 
 const PERKS: { icon: "pricetags-outline" | "barcode-outline" | "cube-outline" | "card-outline"; text: string }[] = [
@@ -23,6 +24,11 @@ export default function Welcome() {
   const top = useApi(shop.publicTopSellers, { query: { limit: 8 } });
   const minimum = useApi(shop.publicMinimum);
   const landing = useApi(shop.publicLanding);
+  useTrackView("landing_view");
+  const apply = () => {
+    track("public_apply_click", { from: "welcome" });
+    void WebBrowser.openBrowserAsync(`${PORTAL_URL}/apply?utm_source=app&utm_medium=welcome`);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.page }}>
@@ -49,7 +55,7 @@ export default function Welcome() {
             <Button
               title="Apply for a wholesale account"
               kind="secondary"
-              onPress={() => WebBrowser.openBrowserAsync(`${PORTAL_URL}/apply`)}
+              onPress={apply}
             />
             <Pressable onPress={() => router.push("/browse")} style={{ alignSelf: "center", padding: space.sm }}>
               <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 15 }}>

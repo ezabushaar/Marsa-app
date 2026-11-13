@@ -13,6 +13,8 @@ import { Shelf } from "@/components/Shelf";
 import { Button, Card, Chip, Pill, Screen, Section, T } from "@/components/ui";
 import { day, money, plural } from "@/lib/format";
 import { stageTone } from "@/lib/orders";
+import { shareReferral } from "@/lib/referral";
+import { track } from "@/lib/analytics";
 import { colors, radius, space } from "@/theme";
 
 function greeting() {
@@ -50,7 +52,8 @@ export default function Home() {
   const backInStock = (follows.data?.rows ?? []).filter((f) => f.stock !== "out_of_stock");
   const usualRows = usual.data?.rows ?? [];
 
-  const doReorder = (id: string, number: string) =>
+  const doReorder = (id: string, number: string) => {
+    track("reorder_click", { order_id: id, from: "home" });
     reorder.mutate(
       { params: { id }, body: { mode: "add" } },
       {
@@ -66,6 +69,7 @@ export default function Home() {
         onError: (e) => Alert.alert("Couldn't reorder", messageOf(e)),
       },
     );
+  };
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -193,7 +197,10 @@ export default function Home() {
               addUsual.mutate(
                 { body: { lines: usualRows.map((r) => ({ productId: r.id, quantity: snapQty(r.usualQty, qtyRules(r)) })) } },
                 {
-                  onSuccess: () => router.push("/cart"),
+                  onSuccess: () => {
+                    track("usual_order_add", { lines: usualRows.length });
+                    router.push("/cart");
+                  },
                   onError: (e) => Alert.alert("Couldn't add them", messageOf(e)),
                 },
               )
@@ -231,6 +238,19 @@ export default function Home() {
             ))}
           </View>
         </Section>
+      ) : null}
+
+      {me && orders.data && orders.data.total >= 2 ? (
+        <Pressable onPress={() => void shareReferral(me.customer.number, "home")} accessibilityRole="button">
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <Ionicons name="gift-outline" size={26} color={colors.accent} />
+            <View style={{ flex: 1 }}>
+              <T variant="h3">Know another store?</T>
+              <T variant="small">Share your invite link. They apply in minutes.</T>
+            </View>
+            <Ionicons name="share-outline" size={20} color={colors.accent} />
+          </Card>
+        </Pressable>
       ) : null}
 
       {rep.data && (rep.data.whatsappUrl || rep.data.email) ? (

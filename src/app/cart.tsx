@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { useRef } from "react";
 import { Alert, Pressable, View } from "react-native";
 import type { z } from "zod";
 import * as shop from "@contracts/routes/portal/shop";
@@ -10,6 +11,7 @@ import { ProductImage } from "@/components/ProductImage";
 import { QtyStepper } from "@/components/QtyStepper";
 import { Banner, Button, Card, Divider, ErrorState, Loading, Row, Screen, T } from "@/components/ui";
 import { money, plural } from "@/lib/format";
+import { track } from "@/lib/analytics";
 import { colors, space } from "@/theme";
 
 type CartLine = z.infer<typeof shop.cartLine>;
@@ -53,7 +55,10 @@ function LineRow({ line }: { line: CartLine }) {
                 kind="secondary"
                 title={line.problem.fix.label}
                 loading={fix.isPending}
-                onPress={() => fix.mutate({ body: { productIds: [line.productId] } })}
+                onPress={() => {
+                  track("cart_fix_applied", { product_id: line.productId, problem: line.problem?.code ?? null });
+                  fix.mutate({ body: { productIds: [line.productId] } });
+                }}
               />
             ) : null}
           </View>
@@ -69,11 +74,16 @@ export default function Cart() {
   const q = useApi(shop.getCart);
   const fixAll = useApiMutation(shop.fixCart, { invalidates: CART_DEPENDENTS });
   const saveList = useApiMutation(shop.createList, { invalidates: [shop.listLists] });
+  const viewedCart = useRef(false);
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const cart = q.data;
   const { summary, estimate } = cart;
+  if (!viewedCart.current) {
+    viewedCart.current = true;
+    track("cart_view", { lines: summary.lines, items_cents: summary.itemsCents, problems: summary.problems });
+  }
 
   if (cart.lines.length === 0) {
     return (
@@ -107,7 +117,10 @@ export default function Cart() {
                 kind="secondary"
                 title="Fix all"
                 loading={fixAll.isPending}
-                onPress={() => fixAll.mutate({ body: {} })}
+                onPress={() => {
+                  track("cart_fix_applied", { all: true, problems: summary.problems });
+                  fixAll.mutate({ body: {} });
+                }}
               />
             </View>
           </Banner>
@@ -185,11 +198,13 @@ export default function Cart() {
             saveList.mutate(
               { body: { name: `Order ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, fromCart: true } },
               {
-                onSuccess: (l) =>
+                onSuccess: (l) => {
+                  track("list_add", { from: "cart", lines: summary.lines });
                   Alert.alert("Saved", `"${l.name}" is in your saved lists.`, [
                     { text: "OK", style: "cancel" },
                     { text: "Open", onPress: () => router.push({ pathname: "/lists/[id]", params: { id: l.id } }) },
-                  ]),
+                  ]);
+                },
                 onError: (e) => Alert.alert("Couldn't save the list", messageOf(e)),
               },
             )

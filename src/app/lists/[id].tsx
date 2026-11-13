@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/kit";
 import { ProductImage } from "@/components/ProductImage";
 import { Button, ErrorState, Loading, T, styles } from "@/components/ui";
 import { money, plural } from "@/lib/format";
+import { track } from "@/lib/analytics";
 import { colors, space } from "@/theme";
 
 /** One saved list: its items at today's price and stock; add it all to the cart, remove items, delete the list. */
@@ -97,7 +98,13 @@ export default function ListDetail() {
             onPress={() =>
               addAll.mutate(
                 { body: { lines: sendable.map((i) => ({ productId: i.id, quantity: snapQty(i.quantity, qtyRules(i)) })) } },
-                { onSuccess: () => router.push("/cart"), onError: (e) => Alert.alert("Couldn't add them", messageOf(e)) },
+                {
+                  onSuccess: () => {
+                    track("add_to_cart", { via: "list", lines: sendable.length, value_cents: total });
+                    router.push("/cart");
+                  },
+                  onError: (e) => Alert.alert("Couldn't add them", messageOf(e)),
+                },
               )
             }
           />

@@ -6,6 +6,7 @@ import { useApi } from "@/api/hooks";
 import { ProductImage } from "@/components/ProductImage";
 import { Banner, Button, Card, ErrorState, Loading, Pill, Row, Screen, T } from "@/components/ui";
 import { PORTAL_URL } from "@/config";
+import { track } from "@/lib/analytics";
 import { space } from "@/theme";
 
 /** One item for a visitor: no price ("Price after approval"), the scent notes and the case pack. */
@@ -38,7 +39,10 @@ export default function PublicProduct() {
       <Button
         title="Apply for a wholesale account"
         kind="secondary"
-        onPress={() => WebBrowser.openBrowserAsync(`${PORTAL_URL}/apply`)}
+        onPress={() => {
+          track("public_apply_click", { from: "product", product_id: p.id });
+          void WebBrowser.openBrowserAsync(`${PORTAL_URL}/apply?utm_source=app&utm_medium=public_product`);
+        }}
       />
     </Screen>
   );

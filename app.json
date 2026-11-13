@@ -115,7 +115,8 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "com.google.android.gms.permission.AD_ID"
       ]
     },
     "plugins": [
@@ -144,6 +145,13 @@
           "photosPermission": "Marsa Wholesale uses your photos only when you attach a picture of a damaged item to a return request.",
           "cameraPermission": "Marsa Wholesale uses the camera to scan product barcodes and to photograph damaged items for a return request.",
           "microphonePermission": false
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Marsa uses this to measure which of our ads bring stores to the app, so we can spend less on ads and keep wholesale prices low. We never sell your data."
         }
       ]
     ],

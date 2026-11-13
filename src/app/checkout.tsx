@@ -4,11 +4,12 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { ResponseOf } from "@contracts/http";
 import * as shop from "@contracts/routes/portal/shop";
-import { messageOf } from "@/api/client";
+import { ApiError, messageOf } from "@/api/client";
 import { CART_DEPENDENTS, useApi, useApiMutation } from "@/api/hooks";
 import { useSession } from "@/api/session";
 import { Banner, Button, Card, Divider, ErrorState, Field, Loading, Row, Screen, Section, T } from "@/components/ui";
 import { money } from "@/lib/format";
+import { track, useTrackView } from "@/lib/analytics";
 import { colors, radius, space } from "@/theme";
 
 type Pay = (typeof shop.PREFERRED_PAYMENTS)[number];
@@ -111,6 +112,7 @@ function CheckoutForm({
     invalidates: [shop.listOrders, shop.listQuotes, shop.getQuote],
   });
   const submit = quote ? acceptQuote : submitCart;
+  useTrackView("checkout_view", { lines: cart.summary.lines, items_cents: cart.summary.itemsCents, quote: !!quote });
   const itemsCents = quote ? quote.totalCents : cart.summary.itemsCents;
 
   const pickup = ship === "pickup";
@@ -130,12 +132,15 @@ function CheckoutForm({
           preferredPayment: pay,
           ...(coupon.trim() ? { couponCode: coupon.trim().toUpperCase() } : {}),
     };
+    if (body.couponCode) track("coupon_apply", { code: body.couponCode, on_send: true });
+    const failed = (e: unknown) =>
+      track("order_submit_error", { code: e instanceof ApiError ? e.code : "unknown", payment: pay, quote: !!quote });
     const done = (r: { order: { id: string } }) => {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace({ pathname: "/placed/[id]", params: { id: r.order.id } });
     };
-    if (quote) acceptQuote.mutate({ params: { id: quote.id }, body }, { onSuccess: done });
-    else submitCart.mutate({ body }, { onSuccess: done });
+    if (quote) acceptQuote.mutate({ params: { id: quote.id }, body }, { onSuccess: done, onError: failed });
+    else submitCart.mutate({ body }, { onSuccess: done, onError: failed });
   };
 
   return (

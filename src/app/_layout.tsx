@@ -9,6 +9,7 @@ import { ApiError } from "@/api/client";
 import { SessionProvider, useSession } from "@/api/session";
 import { CartButton } from "@/components/kit";
 import { ErrorState } from "@/components/ui";
+import { startAnalytics } from "@/lib/analytics";
 import { colors } from "@/theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -38,6 +39,9 @@ const withCart = { headerRight: () => <CartButton /> };
 function RootStack() {
   const { me, loading, unreachable, recheck } = useSession();
   useAppFocus();
+  useEffect(() => {
+    void startAnalytics();
+  }, []);
   useEffect(() => {
     if (!loading) SplashScreen.hide();
   }, [loading]);
@@ -85,6 +89,7 @@ function RootStack() {
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
         <Stack.Screen name="password" options={{ title: "Change password" }} />
         <Stack.Screen name="delete-account" options={{ title: "Delete account" }} />
+        <Stack.Screen name="privacy-choices" options={{ title: "Privacy choices" }} />
         <Stack.Screen name="scan" options={{ headerShown: false, presentation: "fullScreenModal" }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>

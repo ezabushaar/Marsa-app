@@ -8,6 +8,7 @@ import * as shop from "@contracts/routes/portal/shop";
 import { messageOf } from "@/api/client";
 import { CART_DEPENDENTS, useApiMutation } from "@/api/hooks";
 import { money, percentBp } from "@/lib/format";
+import { track } from "@/lib/analytics";
 import { colors, radius, space } from "@/theme";
 import { ProductImage } from "./ProductImage";
 import { QtyStepper } from "./QtyStepper";
@@ -51,7 +52,10 @@ export function useFollow(productId: string) {
   return {
     busy: on.isPending || off.isPending,
     follow: () =>
-      on.mutateAsync({ params: { productId } }).catch((e) => Alert.alert("Couldn't set the alert", messageOf(e))),
+      on
+        .mutateAsync({ params: { productId } })
+        .then(() => track("notify_me", { product_id: productId }))
+        .catch((e) => Alert.alert("Couldn't set the alert", messageOf(e))),
     unfollow: () =>
       off.mutateAsync({ params: { productId } }).catch((e) => Alert.alert("Couldn't remove the alert", messageOf(e))),
   };
@@ -102,7 +106,18 @@ export function AddToCart({ item, wide, deal }: { item: CatalogItem; wide?: bool
         onPress={() => {
           setQty(rules.start);
           void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          line.setQty(rules.start).catch(() => setQty(0));
+          line
+            .setQty(rules.start)
+            .then(() =>
+              track("add_to_cart", {
+                product_id: item.id,
+                sku: item.sku,
+                qty: rules.start,
+                price_cents: deal?.priceCents ?? item.priceCents,
+                deal: !!deal,
+              }),
+            )
+            .catch(() => setQty(0));
         }}
       />
     );
@@ -121,7 +136,10 @@ export function AddToCart({ item, wide, deal }: { item: CatalogItem; wide?: bool
         const before = qty;
         setQty(n);
         void Haptics.selectionAsync();
-        line.setQty(n).catch(() => setQty(before));
+        line
+          .setQty(n)
+          .then(() => track("cart_line_change", { product_id: item.id, from: before, to: n }))
+          .catch(() => setQty(before));
       }}
     />
   );

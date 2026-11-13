@@ -13,6 +13,7 @@ import { Shelf } from "@/components/Shelf";
 import { Banner, Button, Card, ErrorState, Field, Loading, Pill, Row, Screen, Section, T } from "@/components/ui";
 import { absoluteUrl } from "@/config";
 import { day, money, percentBp } from "@/lib/format";
+import { track, useTrackView } from "@/lib/analytics";
 import { colors, space } from "@/theme";
 
 /** Swipeable product photos (the box, the case, the gallery) on a white well. */
@@ -59,6 +60,14 @@ export default function Product() {
   const [qty, setQty] = useState("");
   const [msg, setMsg] = useState("");
   const menu = useActionMenu();
+  const viewed = q.data;
+  useTrackView(
+    "product_view",
+    viewed
+      ? { product_id: viewed.id, sku: viewed.sku, brand: viewed.brand.name, price_cents: viewed.priceCents, stock: viewed.stock }
+      : undefined,
+    viewed?.id ?? null,
+  );
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -175,15 +184,16 @@ export default function Product() {
             <Button
               title="Send request"
               loading={askQuote.isPending}
-              onPress={() =>
+              onPress={() => {
+                track("ask_rep_click", { product_id: p.id, quantity: Number.parseInt(qty, 10) || null });
                 askQuote.mutate({
                   params: { productId: p.id },
                   body: {
                     quantity: Number.parseInt(qty, 10) > 0 ? Number.parseInt(qty, 10) : null,
                     message: msg.trim() || null,
                   },
-                })
-              }
+                });
+              }}
             />
           </Card>
         )

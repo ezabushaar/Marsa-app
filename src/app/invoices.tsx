@@ -7,6 +7,7 @@ import { useApi, useApiMutation } from "@/api/hooks";
 import { Button, Card, Chip, Empty, ErrorState, Loading, Pill, Row, T, styles } from "@/components/ui";
 import { absoluteUrl } from "@/config";
 import { day, money } from "@/lib/format";
+import { track, useTrackView } from "@/lib/analytics";
 import { colors, space } from "@/theme";
 
 type Tab = (typeof pay.PORTAL_INVOICE_TABS)[number];
@@ -20,6 +21,7 @@ export default function Invoices() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const q = useApi(pay.listInvoices, { query: { tab, limit: 100 } });
   const payInvoices = useApiMutation(pay.payInvoices);
+  useTrackView("invoices_view");
 
   const rows = q.data?.rows ?? [];
   const chosen = rows.filter((r) => picked.has(r.id));
@@ -38,7 +40,9 @@ export default function Invoices() {
       { body: { invoiceIds: chosen.map((r) => r.id) } },
       {
         onSuccess: async (r) => {
+          track("checkout_redirect", { kind: "invoices", count: chosen.length, amount_cents: String(chosenCents) });
           await WebBrowser.openBrowserAsync(absoluteUrl(r.url) ?? r.url);
+          track("payment_returned", { kind: "invoices" });
           setPicked(new Set());
           void q.refetch();
         },

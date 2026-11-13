@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import * as shop from "@contracts/routes/portal/shop";
 import { call } from "@/api/client";
+import { track } from "@/lib/analytics";
 import { useApi } from "@/api/hooks";
 import { ProductCard } from "@/components/ProductCard";
 import { Chip, Empty, ErrorState, Loading, T } from "@/components/ui";
@@ -75,6 +76,14 @@ export default function Shop() {
   });
 
   const first = list.data?.pages[0];
+
+  // One "search" per settled search (not per keystroke), with how many came back.
+  const searched = useRef<string | null>(null);
+  useEffect(() => {
+    if (!q || !first || searched.current === q) return;
+    searched.current = q;
+    track("search", { q, results: first.total, fuzzy: first.fuzzy, exact: !!first.match });
+  }, [q, first]);
   const rows = list.data?.pages.flatMap((p) => p.rows) ?? [];
 
   // An exact SKU or barcode match: straight to the item (once per search, so Back returns to the list).

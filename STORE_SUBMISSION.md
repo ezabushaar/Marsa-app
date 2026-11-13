@@ -63,6 +63,8 @@ Both stores ask what data the app collects. The app keeps no data of its own; ev
 | Payment info | **No**: entered on the processor's page, never in the app | | | |
 | Location, contacts, health, browsing, advertising ID | No | | | |
 
+- **Ad attribution off (the default build):** use the answers above. With `EXPO_PUBLIC_AD_ATTRIBUTION=on`, email
+  and purchase history become "used to track you"; see MARKETING.md section 5 before submitting such a build.
 - **Apple:** "Data Not Used to Track You". `NSPrivacyTracking` is false in `app.json`, and the privacy manifest declares the same data types and the required-reason APIs the Expo modules use.
 - **Google Data safety:** data is encrypted in transit (HTTPS only); users can request deletion (Account › Delete account and the web URL); no data is shared with third parties for their own use.
 
