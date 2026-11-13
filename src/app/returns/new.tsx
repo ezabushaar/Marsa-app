@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import * as account from "@contracts/routes/portal/account";
 import { call, messageOf } from "@/api/client";
 import { useApi, useApiMutation } from "@/api/hooks";
@@ -43,11 +43,29 @@ export default function NewReturn() {
   const damaged = chosen.some(([, p]) => p.reason === "damaged_in_transit");
 
   const addPhoto = async (fromCamera: boolean) => {
-    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.6 };
-    const res = fromCamera
-      ? await ImagePicker.launchCameraAsync(opts)
-      : await ImagePicker.launchImageLibraryAsync({ ...opts, allowsMultipleSelection: true, selectionLimit: 6 });
-    if (!res.canceled) setPhotos((p) => [...p, ...res.assets.map((a) => ({ uri: a.uri }))].slice(0, 20));
+    try {
+      const perm = fromCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          fromCamera ? "Camera is off for Marsa" : "Photos are off for Marsa",
+          "Turn it on in Settings to attach a photo of the damage.",
+          [
+            { text: "Not now", style: "cancel" },
+            { text: "Open Settings", onPress: () => void Linking.openSettings() },
+          ],
+        );
+        return;
+      }
+      const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.6 };
+      const res = fromCamera
+        ? await ImagePicker.launchCameraAsync(opts)
+        : await ImagePicker.launchImageLibraryAsync({ ...opts, allowsMultipleSelection: true, selectionLimit: 6 });
+      if (!res.canceled) setPhotos((p) => [...p, ...res.assets.map((a) => ({ uri: a.uri }))].slice(0, 20));
+    } catch (e) {
+      Alert.alert("Couldn't add the photo", messageOf(e));
+    }
   };
 
   const send = async () => {

@@ -31,7 +31,8 @@ function useDebounced<T>(value: T, ms = 300): T {
 }
 
 export default function Shop() {
-  const params = useLocalSearchParams<{ q?: string; brandId?: string; brandName?: string; sort?: Sort }>();
+  // `at` changes on every arrival from another screen, so tapping the same brand twice still applies it.
+  const params = useLocalSearchParams<{ q?: string; brandId?: string; sort?: Sort; at?: string }>();
   const [text, setText] = useState(params.q ?? "");
   const [brandId, setBrandId] = useState<string | undefined>(params.brandId);
   const [sort, setSort] = useState<Sort | undefined>(params.sort);
@@ -46,7 +47,12 @@ export default function Shop() {
     if (params.brandId !== undefined) setBrandId(params.brandId || undefined);
     if (params.sort !== undefined) setSort(params.sort);
     if (params.q !== undefined) setText(params.q);
-  }, [params.brandId, params.sort, params.q]);
+  }, [params.brandId, params.sort, params.q, params.at]);
+
+  // A new search may jump to its exact match again.
+  useEffect(() => {
+    jumped.current = null;
+  }, [q]);
 
   const brands = useApi(shop.brands);
   const query = {

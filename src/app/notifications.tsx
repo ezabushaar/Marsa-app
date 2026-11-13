@@ -32,7 +32,10 @@ export default function Notifications() {
     save.mutate(
       { body },
       {
-        onSuccess: (user) => adopt({ ...me, user }),
+        onSuccess: (user) => {
+          adopt({ ...me, user });
+          setPhone(user.phone ?? "");
+        },
         onError: (e) => Alert.alert("Couldn't save", messageOf(e)),
       },
     );

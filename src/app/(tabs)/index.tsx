@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import * as pay from "@contracts/routes/portal/pay";
 import * as shop from "@contracts/routes/portal/shop";
+import { qtyRules, snapQty } from "@contracts/routes/portal/shop";
 import * as priceLists from "@contracts/routes/priceLists";
 import { messageOf } from "@/api/client";
 import { CART_DEPENDENTS, useApi, useApiMutation } from "@/api/hooks";
@@ -190,7 +191,7 @@ export default function Home() {
             loading={addUsual.isPending}
             onPress={() =>
               addUsual.mutate(
-                { body: { lines: usualRows.map((r) => ({ productId: r.id, quantity: Math.max(r.usualQty, r.minQty) })) } },
+                { body: { lines: usualRows.map((r) => ({ productId: r.id, quantity: snapQty(r.usualQty, qtyRules(r)) })) } },
                 {
                   onSuccess: () => router.push("/cart"),
                   onError: (e) => Alert.alert("Couldn't add them", messageOf(e)),
@@ -215,7 +216,7 @@ export default function Home() {
       <Shelf
         title="New arrivals"
         rows={arrivals.data?.rows ?? []}
-        more={() => router.navigate({ pathname: "/shop", params: { sort: "newest" } })}
+        more={() => router.navigate({ pathname: "/shop", params: { sort: "newest", at: String(Date.now()) } })}
       />
 
       {brands.data && brands.data.rows.length > 0 ? (
@@ -225,7 +226,7 @@ export default function Home() {
               <Chip
                 key={b.id}
                 label={`${b.name} · ${b.itemCount}`}
-                onPress={() => router.navigate({ pathname: "/shop", params: { brandId: b.id } })}
+                onPress={() => router.navigate({ pathname: "/shop", params: { brandId: b.id, at: String(Date.now()) } })}
               />
             ))}
           </View>

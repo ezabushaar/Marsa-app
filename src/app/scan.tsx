@@ -50,9 +50,12 @@ export default function Scan() {
 
   const onCode = async (code: string) => {
     const now = Date.now();
-    if (busy.current) return;
-    if (last.current && last.current.code === code && now - last.current.at < 1800) return;
+    // The camera reports a barcode many times a second while it stays in view: the same code counts again only
+    // after it has been out of the frame for a moment (every sighting pushes the window forward).
+    const seen = last.current;
     last.current = { code, at: now };
+    if (seen && seen.code === code && now - seen.at < 1500) return;
+    if (busy.current) return;
     busy.current = true;
     try {
       const r = await lookup.mutateAsync({ body: { lines: [{ code, quantity: null }] } });
@@ -177,7 +180,10 @@ export default function Scan() {
             style={s.typeInput}
             returnKeyType="search"
             onSubmitEditing={() => {
-              if (typed.trim()) void onCode(typed.trim());
+              if (typed.trim()) {
+                last.current = null;
+                void onCode(typed.trim());
+              }
               setTyped("");
             }}
           />
@@ -216,7 +222,10 @@ export default function Scan() {
             style={s.typeInput}
             returnKeyType="search"
             onSubmitEditing={() => {
-              if (typed.trim()) void onCode(typed.trim());
+              if (typed.trim()) {
+                last.current = null;
+                void onCode(typed.trim());
+              }
               setTyped("");
             }}
           />

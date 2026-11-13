@@ -8,9 +8,12 @@ import { ApiError, call, onUnauthenticated } from "./client";
 export type PortalMe = ResponseOf<typeof auth.me>;
 
 interface Session {
-  /** Undefined while the first check runs; null when signed out. */
+  /** Undefined while the first check runs (or it couldn't reach Marsa); null when signed out. */
   me: PortalMe | null | undefined;
   loading: boolean;
+  /** The session check couldn't reach Marsa (no connection, server down): neither signed in nor out yet. */
+  unreachable: unknown;
+  recheck: () => void;
   can: (cap: PortalCapability) => boolean;
   signIn: (email: string, password: string, keepSignedIn: boolean) => Promise<PortalMe>;
   signOut: () => Promise<void>;
@@ -34,7 +37,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     },
     staleTime: 5 * 60_000,
-    retry: (count, e) => !(e instanceof ApiError && e.status < 500) && count < 2,
+    // A network error (status 0) or a 5xx may pass; a 4xx won't.
+    retry: (count, e) => !(e instanceof ApiError && e.status >= 400 && e.status < 500) && count < 3,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 5000),
   });
 
   const clear = useCallback(() => {
@@ -67,14 +72,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const me = meQuery.data;
   const value = useMemo<Session>(
     () => ({
-      me: meQuery.isPending ? undefined : (me ?? null),
+      me: meQuery.isPending || (meQuery.isError && me === undefined) ? undefined : (me ?? null),
       loading: meQuery.isPending,
+      unreachable: meQuery.isError && me === undefined ? meQuery.error : null,
+      recheck: () => void meQuery.refetch(),
       can: (cap) => !!me?.caps.includes(cap),
       signIn,
       signOut,
       adopt,
     }),
-    [me, meQuery.isPending, signIn, signOut, adopt],
+    [me, meQuery.isPending, meQuery.isError, meQuery.error, meQuery.refetch, signIn, signOut, adopt],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

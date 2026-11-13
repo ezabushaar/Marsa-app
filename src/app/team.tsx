@@ -1,9 +1,10 @@
 import { router } from "expo-router";
-import { ActionSheetIOS, Alert, FlatList, Platform, View } from "react-native";
+import { Alert, FlatList, View } from "react-native";
 import * as team from "@contracts/routes/portal/team";
 import { PORTAL_ROLES } from "@contracts/portal";
 import { messageOf } from "@/api/client";
 import { useApi, useApiMutation } from "@/api/hooks";
+import { useActionMenu } from "@/components/ActionMenu";
 import { CardSkeletons, EmptyState } from "@/components/kit";
 import { Button, ErrorState, Pill, T, styles } from "@/components/ui";
 import { day } from "@/lib/format";
@@ -19,6 +20,7 @@ export default function Team() {
   const reactivate = useApiMutation(team.reactivateTeamMember, { invalidates: deps });
   const resend = useApiMutation(team.resendTeamInvite, { invalidates: deps });
   const fail = (e: unknown) => Alert.alert("Couldn't do that", messageOf(e));
+  const menu = useActionMenu();
 
   type Member = NonNullable<typeof q.data>["rows"][number];
   const manage = (m: Member) => {
@@ -38,25 +40,12 @@ export default function Team() {
             run: () => deactivate.mutate({ params: { userId: m.id }, body: { version: m.version } }, { onError: fail }),
           },
     ];
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title: m.name,
-          options: [...actions.map((a) => a.text), "Cancel"],
-          cancelButtonIndex: actions.length,
-          destructiveButtonIndex: actions.findIndex((a) => a.destructive),
-        },
-        (i) => actions[i]?.run(),
-      );
-    } else {
-      Alert.alert(m.name, undefined, [
-        ...actions.slice(0, 2).map((a) => ({ text: a.text, onPress: a.run, style: a.destructive ? ("destructive" as const) : undefined })),
-        { text: "Cancel", style: "cancel" },
-      ]);
-    }
+    menu.open(m.name, actions);
   };
 
   return (
+    <>
+    {menu.menu}
     <FlatList
       style={{ flex: 1, backgroundColor: colors.canvas }}
       contentContainerStyle={{ padding: space.lg, gap: space.md }}
@@ -94,5 +83,6 @@ export default function Team() {
         )
       }
     />
+    </>
   );
 }

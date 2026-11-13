@@ -31,14 +31,14 @@ export default function DeleteAccount() {
 
   const request = async () => {
     const url = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    if (await Linking.canOpenURL(url)) {
+    try {
+      // openURL rather than canOpenURL: Android 11+ answers false for mailto without a manifest query entry.
       await Linking.openURL(url);
-      setSent(true);
-    } else {
+    } catch {
       await Clipboard.setStringAsync(`${to}\n\n${subject}\n\n${body}`);
       Alert.alert("No email app found", `We copied the request. Send it to ${to} from any email app.`);
-      setSent(true);
     }
+    setSent(true);
   };
 
   return (

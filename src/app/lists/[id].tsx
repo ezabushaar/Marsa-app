@@ -1,6 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Alert, FlatList, Pressable, View } from "react-native";
 import * as shop from "@contracts/routes/portal/shop";
+import { qtyRules, snapQty } from "@contracts/routes/portal/shop";
 import { messageOf } from "@/api/client";
 import { CART_DEPENDENTS, useApi, useApiMutation } from "@/api/hooks";
 import { EmptyState } from "@/components/kit";
@@ -21,7 +22,7 @@ export default function ListDetail() {
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const list = q.data;
   const sendable = list.items.filter((i) => i.sold && i.stock !== "out_of_stock");
-  const total = sendable.reduce((n, i) => n + i.priceCents * Math.max(i.quantity, i.minQty), 0);
+  const total = sendable.reduce((n, i) => n + i.priceCents * snapQty(i.quantity, qtyRules(i)), 0);
 
   return (
     <View style={{ flex: 1 }}>
@@ -95,7 +96,7 @@ export default function ListDetail() {
             loading={addAll.isPending}
             onPress={() =>
               addAll.mutate(
-                { body: { lines: sendable.map((i) => ({ productId: i.id, quantity: Math.max(i.quantity, i.minQty) })) } },
+                { body: { lines: sendable.map((i) => ({ productId: i.id, quantity: snapQty(i.quantity, qtyRules(i)) })) } },
                 { onSuccess: () => router.push("/cart"), onError: (e) => Alert.alert("Couldn't add them", messageOf(e)) },
               )
             }

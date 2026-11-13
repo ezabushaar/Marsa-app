@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { Alert, Linking, Pressable, View } from "react-native";
+import * as pay from "@contracts/routes/portal/pay";
 import * as shop from "@contracts/routes/portal/shop";
 import { messageOf } from "@/api/client";
 import { CART_DEPENDENTS, useApi, useApiMutation } from "@/api/hooks";
@@ -20,6 +21,7 @@ export default function Order() {
   const reorder = useApiMutation(shop.reorder, { invalidates: CART_DEPENDENTS });
   const cancel = useApiMutation(shop.cancelOrder, { invalidates: [shop.getOrder, shop.listOrders] });
   const payLink = useApiMutation(shop.orderPayLink);
+  const payInvoices = useApiMutation(pay.payInvoices);
   const ask = useApiMutation(shop.askOrderChanges);
   const [asking, setAsking] = useState(false);
   const [message, setMessage] = useState("");
@@ -57,14 +59,16 @@ export default function Order() {
       },
     ]);
 
-  const doPay = () =>
-    payLink.mutate(
-      { params: { id: o.id } },
-      {
-        onSuccess: (r) => void WebBrowser.openBrowserAsync(absoluteUrl(r.url) ?? r.url).then(() => q.refetch()),
-        onError: (e) => Alert.alert("Couldn't open payment", messageOf(e)),
-      },
-    );
+  const openPay = (url: string) => void WebBrowser.openBrowserAsync(absoluteUrl(url) ?? url).then(() => q.refetch());
+  const payFail = (e: unknown) => Alert.alert("Couldn't open payment", messageOf(e));
+  /** Pays invoices on the processor's page: the order's own invoice, or the overdue ones holding it. */
+  const doPayInvoices = (invoiceIds: string[]) =>
+    payInvoices.mutate({ body: { invoiceIds } }, { onSuccess: (r) => openPay(r.url), onError: payFail });
+  /** Over the credit limit with nothing invoiced: pay the order ahead so it ships. */
+  const doPayAhead = () =>
+    payLink.mutate({ params: { id: o.id } }, { onSuccess: (r) => openPay(r.url), onError: payFail });
+  const holdInvoices = o.hold?.invoiceIds ?? [];
+  const canPayAhead = o.hold?.reason === "over_limit" && o.hold.payable && holdInvoices.length === 0 && !o.invoice;
 
   return (
     <Screen refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
@@ -97,11 +101,22 @@ export default function Order() {
       ) : null}
 
       <View style={{ gap: space.sm }}>
-        {o.stage === "ready_to_pay" && can("pay") ? (
-          <Button title="Pay for this order" loading={payLink.isPending} onPress={doPay} />
+        {o.stage === "ready_to_pay" && can("pay") && o.invoice && o.invoice.balanceCents !== "0" ? (
+          <Button
+            title={`Pay ${money(o.invoice.balanceCents)}`}
+            loading={payInvoices.isPending}
+            onPress={() => doPayInvoices([o.invoice?.id ?? ""])}
+          />
         ) : null}
-        {o.hold?.payable && can("pay") ? (
-          <Button title="Pay invoices" kind="secondary" onPress={() => router.push("/invoices")} />
+        {can("pay") && o.hold?.payable && holdInvoices.length > 0 ? (
+          <Button
+            title={o.hold.amountCents ? `Pay ${money(o.hold.amountCents)} so it ships` : "Pay the overdue invoices"}
+            loading={payInvoices.isPending}
+            onPress={() => doPayInvoices(holdInvoices)}
+          />
+        ) : null}
+        {can("pay") && canPayAhead ? (
+          <Button title="Pay this order ahead so it ships" loading={payLink.isPending} onPress={doPayAhead} />
         ) : null}
         {can("shop") ? (
           <Button title="Reorder these items" kind="secondary" loading={reorder.isPending} onPress={doReorder} />

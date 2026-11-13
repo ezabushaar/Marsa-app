@@ -3,11 +3,12 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState, Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ApiError } from "@/api/client";
 import { SessionProvider, useSession } from "@/api/session";
 import { CartButton } from "@/components/kit";
+import { ErrorState } from "@/components/ui";
 import { colors } from "@/theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -35,12 +36,19 @@ function useAppFocus() {
 const withCart = { headerRight: () => <CartButton /> };
 
 function RootStack() {
-  const { me, loading } = useSession();
+  const { me, loading, unreachable, recheck } = useSession();
   useAppFocus();
   useEffect(() => {
     if (!loading) SplashScreen.hide();
   }, [loading]);
   if (loading) return null;
+  if (unreachable) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.canvas, justifyContent: "center" }}>
+        <ErrorState error={unreachable} onRetry={recheck} />
+      </View>
+    );
+  }
   const signedIn = !!me;
   return (
     <Stack

@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import type { ResponseOf, RouteContract } from "@contracts/http";
 import * as shop from "@contracts/routes/portal/shop";
+import * as priceLists from "@contracts/routes/priceLists";
 import { type CallInput, call, isRetryable, newIdempotencyKey } from "./client";
 
 /** The query key of a route and its input: the route id first, so one route's queries can be invalidated together. */
@@ -28,24 +29,28 @@ export function useApi<C extends RouteContract>(
 }
 
 /**
- * A write route as a mutation. Each press gets its own Idempotency-Key; a retry after an unknown outcome (network
- * error or 5xx) reuses it, so a double send never places two orders.
+ * A write route as a mutation. Each call gets its own Idempotency-Key; only a retry of the SAME request after an
+ * unknown outcome (network error or 5xx) reuses it, so a double send never places two orders while two different
+ * quick taps (6 → 12 → 18) are two requests.
  */
 export function useApiMutation<C extends RouteContract>(
   contract: C,
   opts?: { onSuccess?: (data: ResponseOf<C>) => void; invalidates?: RouteContract[] },
 ) {
   const qc = useQueryClient();
-  const pendingKey = useRef<string | null>(null);
+  /** The key of a request whose outcome is unknown, kept only for an identical retry. */
+  const unsure = useRef<{ sig: string; key: string } | null>(null);
   return useMutation<ResponseOf<C>, unknown, Omit<CallInput<C>, "idempotencyKey">>({
     mutationFn: async (input) => {
-      pendingKey.current ??= newIdempotencyKey();
+      const sig = JSON.stringify(input ?? null);
+      const key = unsure.current?.sig === sig ? unsure.current.key : newIdempotencyKey();
       try {
-        const out = await call(contract, { ...input, idempotencyKey: pendingKey.current } as CallInput<C>);
-        pendingKey.current = null;
+        const out = await call(contract, { ...input, idempotencyKey: key } as CallInput<C>);
+        if (unsure.current?.key === key) unsure.current = null;
         return out;
       } catch (e) {
-        if (!isRetryable(e)) pendingKey.current = null;
+        if (isRetryable(e)) unsure.current = { sig, key };
+        else if (unsure.current?.key === key) unsure.current = null;
         throw e;
       }
     },
@@ -64,4 +69,7 @@ export const CART_DEPENDENTS: RouteContract[] = [
   shop.newArrivals,
   shop.buyAgain,
   shop.usualOrder,
+  shop.listFollows,
+  shop.getList,
+  priceLists.portalClearance,
 ];

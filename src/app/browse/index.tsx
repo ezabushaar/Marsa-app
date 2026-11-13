@@ -81,6 +81,7 @@ export default function Browse() {
       renderItem={({ item }) => (
         <Pressable
           style={s.card}
+          disabled={!open}
           onPress={() => router.push({ pathname: "/browse/[id]", params: { id: item.id } })}
           accessibilityLabel={`${item.brand.name} ${item.name}`}
         >

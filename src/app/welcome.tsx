@@ -75,7 +75,11 @@ export default function Welcome() {
                 renderItem={({ item }) => (
                   <Pressable
                     style={s.tile}
-                    onPress={() => router.push({ pathname: "/browse/[id]", params: { id: item.id } })}
+                    onPress={() =>
+                      landing.data?.catalogOpen
+                        ? router.push({ pathname: "/browse/[id]", params: { id: item.id } })
+                        : router.push("/browse")
+                    }
                     accessibilityLabel={`${item.brand.name} ${item.name}`}
                   >
                     <ProductImage url={item.imageUrl} name={item.name} />

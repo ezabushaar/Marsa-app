@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActionSheetIOS, Alert, FlatList, Platform, Pressable, Share, useWindowDimensions, View } from "react-native";
+import { Alert, FlatList, Pressable, Share, useWindowDimensions, View } from "react-native";
 import * as shop from "@contracts/routes/portal/shop";
 import { call, messageOf } from "@/api/client";
 import { useApi, useApiMutation } from "@/api/hooks";
+import { useActionMenu } from "@/components/ActionMenu";
 import { AddToCart, stockTone } from "@/components/ProductCard";
 import { ProductImage } from "@/components/ProductImage";
 import { Shelf } from "@/components/Shelf";
@@ -57,6 +58,7 @@ export default function Product() {
   const [asking, setAsking] = useState(false);
   const [qty, setQty] = useState("");
   const [msg, setMsg] = useState("");
+  const menu = useActionMenu();
 
   if (q.isPending) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -95,26 +97,16 @@ export default function Product() {
       }
     };
     if (rows.length === 0) return create();
-    const names = rows.map((r) => r.name);
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { title: "Save to a list", options: [...names, "New list", "Cancel"], cancelButtonIndex: names.length + 1 },
-        (i) => {
-          if (i < names.length) void addTo(rows[i]?.id ?? "");
-          else if (i === names.length) void create();
-        },
-      );
-    } else {
-      Alert.alert("Save to a list", undefined, [
-        ...rows.slice(0, 2).map((r) => ({ text: r.name, onPress: () => void addTo(r.id) })),
-        { text: "New list", onPress: () => void create() },
-      ]);
-    }
+    menu.open("Save to a list", [
+      ...rows.map((r) => ({ text: r.name, run: () => void addTo(r.id) })),
+      { text: "New list", run: () => void create() },
+    ]);
   };
 
   return (
     <Screen refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
       <Stack.Screen options={{ title: p.brand.name }} />
+      {menu.menu}
       <Gallery urls={photos} name={p.name} />
 
       <View style={{ gap: space.xs }}>
