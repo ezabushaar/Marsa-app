@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Marsa Wholesale",
-    "slug": "marsa-wholesale",
+    "slug": "marsaapp",
     "scheme": "marsa",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -38,6 +38,12 @@
           "recordAudioAndroid": false
         }
       ]
-    ]
+    ],
+    "owner": "ezabushaars-team",
+    "extra": {
+      "eas": {
+        "projectId": "bc6cc818-17bb-466d-9b05-72e54708af26"
+      }
+    }
   }
 }
